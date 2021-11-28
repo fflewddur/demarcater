@@ -32,19 +32,31 @@ func main() {
 		reports = append(reports, readFile(path))
 	}
 
-	passed := 0
-	failed := 0
+	// passed := 0
+	// failed := 0
+	agg := dmarc.NewReportAggregator()
 	for _, r := range reports {
-		if r.AllPassed() {
-			passed++
-		} else {
-			failed++
+		agg.Add(r)
+		if !r.AllPassed() {
+			// passed++
+			// } else {
+			// failed++
 			fmt.Printf("\nFailure record:\n")
 			r.PrettyPrint()
 		}
 	}
 
-	fmt.Printf("\nScanned %d files\n", passed+failed)
+	if len(agg.Failed) > 0 {
+		fmt.Printf("Found failures:\n")
+		for ip, count := range agg.Failed {
+			fmt.Printf("\t%16s:%3d failures", ip, count)
+			if successes := agg.Passed[ip]; successes > 0 {
+				fmt.Printf(" (%d successes)", successes)
+			}
+			fmt.Printf("\n")
+		}
+	}
+	fmt.Printf("\nScanned %d files\n", agg.Count())
 }
 
 func readDir(dir string) []*dmarc.Report {
@@ -82,6 +94,7 @@ func readFile(path string) *dmarc.Report {
 		fmt.Printf("Error parsing '%s': %v\n", path, err)
 		os.Exit(1)
 	}
+	report.File = path
 	return report
 }
 
